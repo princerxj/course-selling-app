@@ -1,7 +1,7 @@
 const {JWT_USER_PASSWORD} = require("../config");
 const jwt = require("jsonwebtoken");
 
-function adminMiddleware(req, res, next) {
+function userMiddleware(req, res, next) {
     const token = req.headers.token;
 
     const decoded = jwt.verify(token, JWT_USER_PASSWORD);

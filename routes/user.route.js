@@ -1,10 +1,11 @@
 const express = require("express");
 const userRouter = express.Router();
-const {userModel} = require("../db");
+const {userModel, purchaseModel} = require("../db");
 const bcrypt = require("bcrypt");
 const {z} = require("zod");
 const {JWT_USER_PASSWORD} = require("../config");
 const jwt = require("jsonwebtoken");
+const {userMiddleware} = require("../middlewares/user");
 
 const requiredBody = z.object({
     email : z.string().min(3).max(100).email(),
@@ -87,11 +88,19 @@ userRouter.post("/signin", async (req, res) => {
     }
 });
 
-userRouter.get("/purchases", (req, res) => {
-    res.json({
-        message : "Purchased Courses"
+userRouter.get("/purchases", userMiddleware, async (req, res) => {
+    const userId = req.userId;
+
+    const purchases = await purchaseModel.find({
+        userId,
     })
-})
+    res.json({
+        message : "Purchased Courses",
+        purchases
+    })
+});
+
+
 
 module.exports = {
     userRouter : userRouter
