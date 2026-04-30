@@ -6,6 +6,9 @@ const bcrypt = require("bcrypt");
 const {z} = require("zod");
 const jwt = require("jsonwebtoken");
 const {JWT_ADMIN_PASSWORD} = require("../config");
+const multer = require("multer");
+const { storage } = require("../cloudConfig.js");
+const upload = multer({ storage });
 
 const requiredBody = z.object({
     email : z.string().min(3).max(100).email(),
@@ -89,44 +92,77 @@ adminRouter.post("/signin", async (req, res) => {
     }
 })
 
-adminRouter.post("/course", adminMiddleware, async (req, res) => {
-    const adminId = req.userId;
+adminRouter.post("/course", adminMiddleware, upload.single("image"), async (req, res) => {
+    try {
+        const adminId = req.userId;
 
-    const {title, description, imageUrl, price} = req.body;
+        if(!req.file) {
+            return res.status(400).json({ message: "Please upload an image" });
+        }
 
-    const course = await courseModel.create({
-        title : title,
-        description : description,
-        imageUrl : imageUrl,
-        price : price,
-        creatorId : adminId
-    })
-    res.json({
-        message : "course created",
-        courseId : course._id
-    })
+        const imageUrl = req.file.path;
+
+        const {title, description, price} = req.body;
+
+        const course = await courseModel.create({
+            title : title,
+            description : description,
+            imageUrl : imageUrl,
+            price : Number(price),
+            creatorId : adminId
+        })
+
+        res.json({
+            message : "course created",
+            courseId : course._id
+        })
+    } catch(error) {
+        res.status(500).json({
+            message : "Error creating course"
+        })
+    }
+    
 })
 
-adminRouter.put("/course", adminMiddleware, async (req, res) => {
-    const adminId = req.userId;
+adminRouter.put("/course", adminMiddleware, upload.single("image"), async (req, res) => {
+    try {
+        const adminId = req.userId;
+        const { title, description, price, courseId } = req.body;
 
-    const {title, description, imageUrl, price, courseId} = req.body;
+        const currentCourse = await courseModel.findOne({ _id: courseId, creatorId: adminId });
 
-    const course = await courseModel.updateOne({
-        _id : courseId,
-        creatorId : adminId
-    }, {
-        title : title,
-        description : description,
-        imageUrl : imageUrl,
-        price : price
-    })
+        if (!currentCourse) {
+            return res.status(404).json({ message: "Course not found or unauthorized" });
+        }
 
-    res.json({
-        message : "Course Updated",
-        courseId : course._id
-    })
-})
+        let imageUrl = currentCourse.imageUrl;
+
+        if (req.file) {
+            if (currentCourse.imageUrl) {
+                const publicId = currentCourse.imageUrl.split('/').pop().split('.')[0];
+                await cloudinary.uploader.destroy(`Coursera/${publicId}`);
+            }
+            imageUrl = req.file.path;
+        }
+
+        await courseModel.updateOne(
+            { _id: courseId, creatorId: adminId },
+            { 
+                title, 
+                description, 
+                price: Number(price), 
+                imageUrl 
+            }
+        );
+
+        res.json({ 
+            message: "Course Updated", 
+            courseId: courseId 
+        });
+    } catch (error) {
+        res.status(500).json({ message: "Error updating course" });
+    }
+});
 
 adminRouter.get("/course/bulk", adminMiddleware, async (req, res) => {
     const adminId = req.userId;
