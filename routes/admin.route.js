@@ -1,6 +1,6 @@
 const {Router} = require("express");
 const adminRouter = Router();
-const {adminModel} = require("../db");
+const {adminModel, courseModel} = require("../db");
 const {adminMiddleware} = require("../middlewares/admin");
 const bcrypt = require("bcrypt");
 const {z} = require("zod");
@@ -89,21 +89,55 @@ adminRouter.post("/signin", async (req, res) => {
     }
 })
 
-adminRouter.post("/course", adminMiddleware, (req, res) => {
+adminRouter.post("/course", adminMiddleware, async (req, res) => {
+    const adminId = req.userId;
+
+    const {title, description, imageUrl, price} = req.body;
+
+    const course = await courseModel.create({
+        title : title,
+        description : description,
+        imageUrl : imageUrl,
+        price : price,
+        creatorId : adminId
+    })
     res.json({
-        message : "course Endpoint"
+        message : "course created",
+        courseId : course._id
     })
 })
 
-adminRouter.put("/course", adminMiddleware, (req, res) => {
+adminRouter.put("/course", adminMiddleware, async (req, res) => {
+    const adminId = req.userId;
+
+    const {title, description, imageUrl, price} = req.body;
+
+    const course = await courseModel.updateOne({
+        _id : courseId,
+        creatorId : adminId
+    }, {
+        title : title,
+        description : description,
+        imageUrl : imageUrl,
+        price : price
+    })
+
     res.json({
-        message : "Update the Course Details"
+        message : "Course Updated",
+        courseId : course._id
     })
 })
 
-adminRouter.get("/bulk", adminMiddleware, (req, res) => {
+adminRouter.get("/course/bulk", adminMiddleware, (req, res) => {
+    const adminId = req.userId;
+
+    const courses = await courseModel.find({
+        creatorId : adminId
+    });
+
     res.json({
-        message : "See all the Courses in Bulk"
+        message : "See all the Courses in Bulk",
+        courses
     })
 })
 
